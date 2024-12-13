@@ -5,7 +5,21 @@ from datetime import datetime, timezone
 
 Base = declarative_base()
 
-class Dish(Base):
+class User(Base):
+    __tablename__ = "users"
+
+    # Colonnes
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ID unique et clé primaire
+    username = Column(String(50), unique=True, nullable=False)  # Nom d'utilisateur unique
+    password = Column(String(255), nullable=False)             # Mot de passe (idéalement haché)
+
+    # Relation avec Dish
+    dishes = relationship("Dish", back_populates="user", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"User(id={self.id}, username={self.username})"
+
+
     __tablename__ = "dishes"
 
     # Colonnes
