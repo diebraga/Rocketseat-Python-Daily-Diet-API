@@ -201,6 +201,8 @@ def get_all_dishes(payload: dict = Depends(is_authenticated), db: Session = Depe
     ]
 
 
+from sqlalchemy import update
+
 @app.put("/update_dish/{dish_id}")
 def update_dish(
     dish_id: int,
@@ -208,33 +210,52 @@ def update_dish(
     payload: dict = Depends(is_authenticated),
     db: Session = Depends(get_db)
 ):
-    # Vérification si l'utilisateur est administrateur
+    # Vérifier si l'utilisateur est administrateur
     is_admin = payload.get("is_admin")
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required!")
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required!"
+        )
 
-    # Rechercher le plat dans la base de données
-    dish = db.query(Dish).filter(Dish.id == dish_id).first()
-    if not dish:
-        raise HTTPException(status_code=404, detail="Dish not found!")
+    # Vérifier si un autre plat a déjà le même nom
+    existing_dish = db.query(Dish).filter(Dish.name == data.name, Dish.id != dish_id).first()
+    if existing_dish:
+        raise HTTPException(
+            status_code=400,
+            detail="A dish with this name already exists. Please choose another name."
+        )
 
-    # Mettre à jour les champs avec les données fournies
-    dish.name = data.name
-    dish.description = data.description
-    dish.is_on_diet = data.is_on_diet
-    dish.date_time = data.date_time  
+    # Effectuer directement la mise à jour avec update()
+    result = db.execute(
+        update(Dish)
+        .where(Dish.id == dish_id)
+        .values(
+            name=data.name,
+            description=data.description,
+            is_on_diet=data.is_on_diet,
+            date_time=data.date_time
+        )
+    )
 
-    # Sauvegarder les modifications
+    # Vérifier si un plat a bien été mis à jour
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Dish not found!"
+        )
+
+    # Confirmer les modifications
     db.commit()
-    db.refresh(dish)
 
+    # Retourner une réponse pour l'utilisateur en anglais
     return {
         "message": "Dish updated successfully!",
-        "dish_id": dish.id,
-        "name": dish.name,
-        "description": dish.description,
-        "is_on_diet": dish.is_on_diet,
-        "date_time": dish.date_time
+        "dish_id": dish_id,
+        "name": data.name,
+        "description": data.description,
+        "is_on_diet": data.is_on_diet,
+        "date_time": data.date_time
     }
 
 
