@@ -97,7 +97,7 @@ def create_dish(data: DishData, payload: dict = Depends(is_authenticated), db: S
 
     dish = db.query(Dish).filter(Dish.name == data.name).first()
     if dish:
-        raise HTTPException(status_code=404, detail="Dish already exist!")
+        raise HTTPException(status_code=403, detail="Dish already exist!")
 
     # Créer un nouveau plat (Dish)
     new_dish = Dish(
@@ -117,6 +117,32 @@ def create_dish(data: DishData, payload: dict = Depends(is_authenticated), db: S
         "dish_id": new_dish.id,
         "user_id": user_id,
         "name": new_dish.name
+    }
+
+
+@app.delete("/delete_dish/{dish_id}")
+def delete_dish(
+    dish_id: int,
+    payload: dict = Depends(is_authenticated),
+    db: Session = Depends(get_db)
+):
+    # Vérifier si l'utilisateur est administrateur
+    is_admin = payload.get("is_admin")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Rechercher le plat dans la base de données
+    dish = db.query(Dish).filter(Dish.id == dish_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+    
+    # Supprimer le plat de la base de données
+    db.delete(dish)
+    db.commit()
+
+    return {
+        "message": "Dish deleted successfully",
+        "dish_id": dish_id
     }
 
 
