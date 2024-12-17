@@ -42,28 +42,41 @@ def login(data: LoginData, db: Session = Depends(get_db)):
         "token": token
     }
 
+
 class SignUpData(BaseModel):
     username: str  
     password: str 
     is_admin: bool 
 
 @app.post("/sign_up")
-def sign_up(data: SignUpData, payload: dict = Depends(is_authenticated)):
+def sign_up(data: SignUpData, payload: dict = Depends(is_authenticated), db: Session = Depends(get_db)):
     # Vérifier si l'utilisateur actuel est admin
     is_admin = payload.get("is_admin")
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.username == data.username).first()
 
-    # Afficher les données reçues
-    print(f"Nom d'utilisateur reçu : {data.username}")
-    print(f"Mot de passe reçu : {data.password}")
-    print(f"Est administrateur : {data.is_admin}")
+    if user:
+        raise HTTPException(status_code=403, detail="User already exists")
 
-    return {
-        "message": "Sign-up data received",
-        "username": data.username,
-        "is_admin": data.is_admin
-    }
+    # Hachage du mot de passe avec bcrypt
+    hashed_password = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt())
+
+    # Créer un nouvel utilisateur
+    new_user = User(
+        username=data.username,
+        password=hashed_password.decode('utf-8'),
+        is_admin=data.is_admin
+    )
+
+    # Ajouter l'utilisateur à la base de données
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return { "message": "User created successfully", "username": new_user.username }
+
 
 @app.get("/")
 def hello_world():
