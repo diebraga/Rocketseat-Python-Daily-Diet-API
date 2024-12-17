@@ -78,6 +78,48 @@ def sign_up(data: SignUpData, payload: dict = Depends(is_authenticated), db: Ses
     return { "message": "User created successfully", "username": new_user.username }
 
 
+class DishData(BaseModel):
+    name: str
+    description: str
+    is_on_diet: bool
+
+@app.post("/create_dish")
+def create_dish(data: DishData, payload: dict = Depends(is_authenticated), db: Session = Depends(get_db)):
+    # Extraire user_id depuis le payload JWT
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=403, detail="User ID required!")
+
+    # Vérifier si l'utilisateur existe dans la base de données
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User does not exist!")
+
+    dish = db.query(Dish).filter(Dish.name == data.name).first()
+    if dish:
+        raise HTTPException(status_code=404, detail="Dish already exist!")
+
+    # Créer un nouveau plat (Dish)
+    new_dish = Dish(
+        name=data.name,
+        description=data.description,
+        is_on_diet=data.is_on_diet,
+        user_id=user_id  
+    )
+
+    # Ajouter et sauvegarder dans la base de données
+    db.add(new_dish)
+    db.commit()
+    db.refresh(new_dish)
+
+    return {
+        "message": "Dish created successfully!",
+        "dish_id": new_dish.id,
+        "user_id": user_id,
+        "name": new_dish.name
+    }
+
+
 @app.get("/")
 def hello_world():
     return {"Hello": "World"}
