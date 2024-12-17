@@ -146,9 +146,30 @@ def delete_dish(
     }
 
 
-@app.get("/")
-def hello_world():
-    return {"Hello": "World"}
+@app.get("/get_dish/{dish_id}")
+def get_dish_by_id(
+    dish_id: int,
+    payload: dict = Depends(is_authenticated), 
+    db: Session = Depends(get_db)
+):
+    # Extraire l'ID utilisateur depuis le JWT
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=403, detail="Authentication required!")
+
+    # Vérifier si le plat existe
+    dish = db.query(Dish).filter(Dish.id == dish_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+
+    return {
+        "dish_id": dish.id,
+        "name": dish.name,
+        "description": dish.description,
+        "is_on_diet": dish.is_on_diet,
+        "created_by_user_id": dish.user_id
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
