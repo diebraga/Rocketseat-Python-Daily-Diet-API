@@ -82,6 +82,7 @@ class DishData(BaseModel):
     name: str
     description: str
     is_on_diet: bool
+    date_time: datetime
 
 @app.post("/create_dish")
 def create_dish(data: DishData, payload: dict = Depends(is_authenticated), db: Session = Depends(get_db)):
@@ -167,7 +168,8 @@ def get_dish_by_id(
         "name": dish.name,
         "description": dish.description,
         "is_on_diet": dish.is_on_diet,
-        "created_by_user_id": dish.user_id
+        "created_by_user_id": dish.user_id,
+        "created_at": dish.date_time
     }
 
 
@@ -192,10 +194,48 @@ def get_all_dishes(payload: dict = Depends(is_authenticated), db: Session = Depe
             "name": dish.name,
             "description": dish.description,
             "is_on_diet": dish.is_on_diet,
-            "created_by_user_id": dish.user_id
+            "created_by_user_id": dish.user_id,
+            "created_at": dish.date_time
         }
         for dish in dishes
     ]
+
+
+@app.put("/update_dish/{dish_id}")
+def update_dish(
+    dish_id: int,
+    data: DishData,
+    payload: dict = Depends(is_authenticated),
+    db: Session = Depends(get_db)
+):
+    # Vérification si l'utilisateur est administrateur
+    is_admin = payload.get("is_admin")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required!")
+
+    # Rechercher le plat dans la base de données
+    dish = db.query(Dish).filter(Dish.id == dish_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found!")
+
+    # Mettre à jour les champs avec les données fournies
+    dish.name = data.name
+    dish.description = data.description
+    dish.is_on_diet = data.is_on_diet
+    dish.date_time = data.date_time  
+
+    # Sauvegarder les modifications
+    db.commit()
+    db.refresh(dish)
+
+    return {
+        "message": "Dish updated successfully!",
+        "dish_id": dish.id,
+        "name": dish.name,
+        "description": dish.description,
+        "is_on_diet": dish.is_on_diet,
+        "date_time": dish.date_time
+    }
 
 
 if __name__ == "__main__":
