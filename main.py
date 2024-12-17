@@ -171,6 +171,33 @@ def get_dish_by_id(
     }
 
 
+@app.get("/get_all_dishes")
+def get_all_dishes(payload: dict = Depends(is_authenticated), db: Session = Depends(get_db)):
+    # Vérification de l'authentification
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=403, detail="Authentication required!")
+
+    # Récupérer tous les plats de la base de données
+    dishes = db.query(Dish).all()
+
+    # Vérifier s'il y a des plats dans la base
+    if not dishes:
+        raise HTTPException(status_code=404, detail="No dishes found!")
+
+    # Construire la réponse
+    return [
+        {
+            "dish_id": dish.id,
+            "name": dish.name,
+            "description": dish.description,
+            "is_on_diet": dish.is_on_diet,
+            "created_by_user_id": dish.user_id
+        }
+        for dish in dishes
+    ]
+
+
 if __name__ == "__main__":
     import uvicorn
 
