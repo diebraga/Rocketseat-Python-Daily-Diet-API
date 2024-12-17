@@ -6,11 +6,9 @@ from sqlalchemy.orm import Session
 from repository.database import Base, engine, get_db
 from models.user import User
 from models.dish import Dish
-import bcrypt  # Import bcrypt
-
-# Clé secrète et algorithme pour JWT
-SECRET_KEY = "45tyhjhYGHJ£$%TGHj5yuuuuyghGGDSSEbH&**^"
-ALGORITHM = "HS256"
+import bcrypt  
+from middlewares.is_authenticated import is_authenticated
+from config import ALGORITHM, SECRET_KEY
 
 app = FastAPI()
 
@@ -37,11 +35,34 @@ def login(data: LoginData, db: Session = Depends(get_db)):
 
     # Générer un JWT avec une durée de validité d'un jour
     expire = datetime.now(timezone.utc) + timedelta(days=1)
-    token = jwt.encode({"user_id": user.id, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode({"user_id": user.id, "exp": expire, "is_admin": user.is_admin}, SECRET_KEY, algorithm=ALGORITHM)
 
     return {
         "username": user.username,
         "token": token
+    }
+
+class SignUpData(BaseModel):
+    username: str  
+    password: str 
+    is_admin: bool 
+
+@app.post("/sign_up")
+def sign_up(data: SignUpData, payload: dict = Depends(is_authenticated)):
+    # Vérifier si l'utilisateur actuel est admin
+    is_admin = payload.get("is_admin")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Afficher les données reçues
+    print(f"Nom d'utilisateur reçu : {data.username}")
+    print(f"Mot de passe reçu : {data.password}")
+    print(f"Est administrateur : {data.is_admin}")
+
+    return {
+        "message": "Sign-up data received",
+        "username": data.username,
+        "is_admin": data.is_admin
     }
 
 @app.get("/")
